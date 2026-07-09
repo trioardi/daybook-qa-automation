@@ -1,7 +1,7 @@
 # DayBook — Bug Report
 
 **Application:** DayBook (MERN journal app) — https://github.com/TheNileshNishad/daybook
-**Tester:** Eric
+**Tester:** Satrio Ardiman (trioardi)
 **Date:** 2026-07-09
 **Environment:** Backend `localhost:3000` (Node) · Frontend `localhost:5173` (Vite/React) · MongoDB local
 **Method:** Automated API probing (Supertest/axios), automated E2E (Playwright), and manual exploratory/smoke testing.

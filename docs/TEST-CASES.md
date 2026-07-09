@@ -1,7 +1,7 @@
 # DayBook — Test Case Documentation & Testing Strategy
 
 **Application under test:** DayBook — a MERN (MongoDB, Express, React, Node) personal journaling app
-**Author:** Eric · **Date:** 2026-07-09
+**Author:** Satrio Ardiman (trioardi) · **Date:** 2026-07-09
 **Deliverables:** Playwright E2E suite · Jest + Supertest API suite · Bug report · This document
 
 ---
@@ -81,14 +81,14 @@ Each case below maps 1:1 to a spec file. "Expected results" are the actual asser
 ### A01 — Signup (happy path)
 - **File:** `e2e/tests/auth/A01-signup.spec.ts` · **Type:** Positive · **Priority:** High
 - **Preconditions:** App running; the email is not yet registered.
-- **Test data:** Unique valid user — `firstName: Eric`, `lastName: Tester`, unique email, password `Passw0rd!` (meets strong-password rule).
+- **Test data:** Unique valid user (`firstName: Alex`, `lastName: Tester`, unique email, password `Passw0rd!`, which meets the strong-password rule).
 - **Steps:**
   1. Navigate to `/signup`.
   2. Fill First Name, Last Name, Email, Password.
   3. Click **Sign up**.
 - **Expected results:**
   - App auto-logs-in and redirects to Home (`/`).
-  - Home shows the heading **"Welcome Back, Eric"**.
+  - Home shows the heading **"Welcome Back, Alex"**.
   - Navbar shows the profile dropdown trigger with the user's first name.
 
 ---
@@ -110,7 +110,7 @@ Each case below maps 1:1 to a spec file. "Expected results" are the actual asser
 ### A03 — Update personal details
 - **File:** `e2e/tests/auth/A03-update-personal-details.spec.ts` · **Type:** Positive · **Priority:** Medium
 - **Preconditions:** Logged-in user.
-- **Test data:** New name — `firstName: Erica`, `lastName: Updated`.
+- **Test data:** New name (`firstName: Alexis`, `lastName: Updated`).
 - **Steps:**
   1. Open navbar dropdown → **Profile**.
   2. Change First Name and Last Name.

@@ -26,7 +26,7 @@ import { test, expect } from '../../support/fixtures';
 import { authedApi } from '../../support/api';
 
 test('A03 - user can update their first and last name', async ({ authedPage, navBar, user }) => {
-  const newFirst = 'Erica';
+  const newFirst = 'Alexis';
   const newLast = 'Updated';
 
   await navBar.updateProfile(user.firstName, { firstName: newFirst, lastName: newLast });

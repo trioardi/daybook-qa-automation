@@ -1,8 +1,8 @@
 {
-  "name": "daybook-qa-assessment",
+  "name": "daybook-qa-automation",
   "version": "1.0.0",
-  "description": "QA automation suite for the DayBook MERN journal app — Playwright E2E + Jest/Supertest API tests",
-  "author": "Eric",
+  "description": "QA automation suite for the DayBook MERN journal app: Playwright E2E + Jest/Supertest API tests",
+  "author": "trioardi <satrioardiman@gmail.com>",
   "license": "MIT",
   "scripts": {
     "test": "npm run test:api && npm run test:e2e",

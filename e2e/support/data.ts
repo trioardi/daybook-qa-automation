@@ -22,7 +22,7 @@ export function uniqueUser(overrides: Partial<TestUser> = {}): TestUser {
   const rand = Math.random().toString(36).slice(2, 5);
   const stamp = `${Date.now().toString(36)}${process.pid.toString(36)}${counter.toString(36)}${rand}`;
   return {
-    firstName: 'Eric',
+    firstName: 'Alex',
     lastName: 'Tester',
     email: `qa.${stamp}@daybook.test`,
     // Meets validator.isStrongPassword: 8+ chars, upper, lower, number, symbol.
