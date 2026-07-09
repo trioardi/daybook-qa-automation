@@ -9,6 +9,9 @@ Automated test suite for the **DayBook** MERN journaling app
 
 > **Results:** 13 E2E tests ✅ · 43 API tests ✅ (+1 skipped) · **8 confirmed issues** filed (1 Critical, 1 High,
 > 3 Medium, 3 Low) — plus 2 suspected issues investigated against the live app and dismissed.
+>
+> Every issue in the report was **reproduced against a running instance** (API probes + Playwright + live UI via
+> BrowserOS) before being filed — nothing is inferred from source alone.
 
 ---
 
@@ -64,7 +67,7 @@ npm run dev        # -> http://localhost:5173
 ## 3. Install the test suite
 
 ```bash
-cd daybook-qa-assessment
+cd daybook-qa-automation
 npm install                 # installs deps + Playwright Chromium
 cp .env.example .env        # optional; defaults already point at the ports above
 ```
@@ -94,7 +97,7 @@ BACKEND_URL=http://localhost:3000 FRONTEND_URL=http://localhost:5173 npm test
 ## 5. Project structure
 
 ```
-daybook-qa-assessment/
+daybook-qa-automation/
 ├── .github/workflows/
 │   └── e2e-tests.yml           # dormant CI (manual/scheduled) — see §6
 ├── playwright.config.ts        # E2E config (baseURL from FRONTEND_URL)
@@ -158,5 +161,5 @@ No secrets are required; the workflow provisions its own throwaway Mongo + JWT s
 | `browserType.launch: Executable doesn't exist` | Playwright browser missing — run `npx playwright install chromium`. |
 | API suite fails right after a profile test | You may have triggered **BUG-01** (server crash). Restart the backend; the suite keeps that case `skip`-ped for exactly this reason. |
 
-> **Note:** the suite tests the DayBook app *as-is*. The 10 documented bugs are defects **in the application**, not in
+> **Note:** the suite tests the DayBook app *as-is*. The 8 documented issues are defects **in the application**, not in
 > the tests — the test suite itself is fully green (see [`docs/TEST-CASES.md`](docs/TEST-CASES.md) §5).

@@ -28,7 +28,7 @@ documentation in [`api/tests/known-issues.api.test.ts`](../api/tests/known-issue
 
 ---
 
-## BUG-01 — Updating a profile without a last name crashes the server 🔴 Critical
+## BUG-01 — Omitting `lastName` on `PUT /api/users/me` crashes the server 🔴 Critical
 
 **Endpoint:** `PUT /api/users/me`
 **Type:** Availability / unhandled exception (Denial of Service)
