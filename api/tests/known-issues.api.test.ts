@@ -64,10 +64,15 @@ test.failing('BUG-06 - creating an entry with an invalid mood should be 422, not
   expect(res.status).toBe(422);
 });
 
-// BUG-01 (CRITICAL) — PUT /api/users/me with a first name but NO last name
+// BUG-01 (CRITICAL) — PUT /api/users/me with the `lastName` key OMITTED
 // evaluates `lastName.length` on `undefined` OUTSIDE the try/catch. The
 // resulting TypeError is an unhandled synchronous throw that CRASHES the entire
 // Node process, taking the API down for every user until it is restarted.
+//
+// Verified trigger:  { firstName: "X" }          -> server crash
+//         and NOT:    { firstName: "X", lastName: "" } -> 200 OK (this is what
+//         the shipped UI always sends, so a normal user cannot hit it — only
+//         direct API consumers that omit the field can).
 //
 // This test is intentionally SKIPPED: running it live would kill the shared
 // server and fail the rest of the suite. It is documented here so the repro is
@@ -75,7 +80,7 @@ test.failing('BUG-06 - creating an entry with an invalid mood should be 422, not
 //
 // Manual repro:
 //   1. Sign up / log in a user.
-//   2. PUT /api/users/me  {"firstName":"OnlyFirst"}   (note: no lastName)
+//   2. PUT /api/users/me  {"firstName":"OnlyFirst"}   (note: no lastName key)
 //   3. Observe: request hangs / socket hang up; server logs a TypeError at
 //      userController.js:21 and the process exits.
 test.skip('BUG-01 - PUT /users/me without lastName must not crash the server', async () => {

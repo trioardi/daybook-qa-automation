@@ -29,9 +29,8 @@ export const test = base.extend<Fixtures>({
     await use(u);
   },
 
-  // Logs the seeded user in through the real UI so the Redux `user` state is
-  // populated (a stored cookie alone is not enough — the app has no session
-  // rehydration on load).
+  // Logs the seeded user in through the real UI, so every authenticated spec
+  // also exercises the login flow end to end.
   authedPage: async ({ page, user }, use) => {
     const login = new LoginPage(page);
     const nav = new NavBar(page);

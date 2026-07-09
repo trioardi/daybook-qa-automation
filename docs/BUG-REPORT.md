@@ -13,16 +13,18 @@ documentation in [`api/tests/known-issues.api.test.ts`](../api/tests/known-issue
 
 | ID | Severity | Area | One-line summary |
 |----|----------|------|------------------|
-| **BUG-01** | 🔴 Critical | `PUT /api/users/me` | Updating a profile that has no last name **crashes the whole server process** |
+| **BUG-01** | 🔴 Critical | `PUT /api/users/me` | An API request that **omits** the optional `lastName` **crashes the whole server process** (not reachable via the shipped UI) |
 | **BUG-05** | 🟠 High | `GET /api/entries/search` | Search terms with regex metacharacters (e.g. `(`) cause an unhandled 500 |
 | **BUG-04** | 🟡 Medium | `GET /api/entries/:id` | A malformed entry id returns 500 instead of 400/404 |
 | **BUG-02** | 🟡 Medium | `POST /api/auth/signup` | Missing `email` returns 500 instead of 400 |
 | **BUG-03** | 🟡 Medium | `POST /api/auth/login` | Empty request body returns 500 instead of 400 |
-| **BUG-07** | 🟡 Medium | Frontend / session | Reloading any page logs the user out in the UI despite a valid cookie |
 | **BUG-06** | 🟢 Low | `POST /api/entries` | An out-of-enum `mood` returns 500 instead of 422 |
-| **BUG-08** | 🟢 Low | Frontend / profile | Name change is not reflected in the navbar until the user logs in again |
-| **BUG-09** | 🟢 Low | Frontend / search | A search server-error renders a misleading "no entries yet" empty state |
-| **BUG-10** | 🟢 Low | Backend / cookies | Auth cookie is `Secure; SameSite=None`, so it is unusable over plain HTTP by non-browser clients |
+| **BUG-09** | 🟢 Low (UX) | Frontend / search | A search server-error (BUG-05) renders a misleading "no entries yet" empty state |
+| **BUG-10** | 🟢 Low (config) | Backend / cookies | Auth cookie is `Secure; SameSite=None`, so it is unusable over plain HTTP by non-browser clients |
+
+> **Two earlier suspected issues were disproven by live testing and are NOT bugs** — see
+> [§ Investigated — not defects](#investigated--not-defects) at the end. Findings are only listed above after being
+> reproduced against a running instance (API probes + Playwright + live UI via BrowserOS).
 
 ---
 
@@ -43,13 +45,23 @@ documentation in [`api/tests/known-issues.api.test.ts`](../api/tests/known-issue
    ```
 3. Observe the response.
 
-### Steps to reproduce (UI — real user path)
-1. Sign up a new account **leaving "Last Name" blank** (it is marked optional).
-2. Log in, open the **Profile** dialog from the navbar dropdown.
-3. Click **Save Changes** without adding a last name.
+### Trigger condition (verified)
+The crash happens only when the `lastName` **key is omitted** from the request body (i.e. `lastName === undefined`).
+This was verified end-to-end:
+
+| Request body | Result |
+|--------------|--------|
+| `{ "firstName": "X" }` (lastName omitted) | 🔴 **server process crashes** |
+| `{ "firstName": "X", "lastName": "" }` (empty string) | ✅ 200 OK, handled fine |
+
+**Not reachable through the normal DayBook UI.** I confirmed via the live UI (BrowserOS) that signing up without a
+last name and clicking **Profile → Save Changes** does **not** crash the server: the React form always sends
+`lastName: ""` (an empty string), which the backend handles. The crash is reached by **direct API consumers** that
+omit the field — e.g. another service, a script, an attacker, or the app's own RTK layer if `lastName` were ever
+`undefined` (as it is for any account seeded through the API without a last name).
 
 ### Expected
-`200 OK` (last name is optional) or, at worst, a `4xx` validation error. The service stays up.
+`200 OK` (last name is optional) or, at worst, a `4xx` validation error. The service must never crash on any input.
 
 ### Actual
 The controller evaluates `lastName.length` on `undefined` **outside** the `try/catch`:
@@ -65,8 +77,10 @@ manually restarted. Confirmed: the request returns `socket hang up` and the serv
 `userController.js:21`.
 
 ### Impact
-Any authenticated user (or attacker) can take the whole backend offline with a single request. This is the
-highest-priority fix.
+Any authenticated API consumer (integration, script, or attacker) can take the whole backend offline for **all**
+users with a single well-formed HTTP request. An unhandled exception on optional input is a serious robustness/
+availability defect regardless of which client triggers it — this is the highest-priority fix. (Severity kept at
+Critical for the availability risk, with the accurate note that the shipped UI does not trigger it.)
 
 ### Suggested fix
 Guard the optional field and move validation inside the try/catch, e.g.
@@ -140,20 +154,6 @@ index.
 
 ---
 
-## BUG-07 — Page reload logs the user out in the UI 🟡 Medium (UX)
-
-**Area:** Frontend session handling (`redux/features/userSlice.js`, `App.jsx`)
-
-**Repro:** Log in → press **F5 / reload** on any page.
-**Expected:** The user stays logged in (the JWT cookie is still valid for 7 days).
-**Actual:** The Redux `user` state starts as `null` on every load and is never rehydrated from the cookie/`/users/me`,
-so the UI shows the logged-out navbar and `/entries` redirects to `/login` — even though the session cookie is valid.
-**Impact:** Feels broken; users must re-login constantly. Also means auth state cannot be reused across tabs.
-**Fix:** On app boot, call `GET /api/users/me` and hydrate the store if the cookie is valid.
-*(Note: this behaviour is why the E2E suite must log in through the UI each test rather than reuse `storageState`.)*
-
----
-
 ## BUG-06 — Invalid `mood` value returns 500 instead of 422 🟢 Low
 
 **Endpoint:** `POST /api/entries`
@@ -166,27 +166,16 @@ constrained `<select>`, but trivially reachable via the API.)
 
 ---
 
-## BUG-08 — Profile name change not reflected until re-login 🟢 Low (UX)
-
-**Area:** Frontend (`components/auth/Profile.jsx`)
-
-**Repro:** Log in → Profile → change first name → Save. Toast says "Profile updated successfully!" but the navbar still
-shows the old name.
-**Expected:** The navbar/greeting updates immediately.
-**Actual:** `updateProfile` succeeds server-side but the Redux `user` slice is only ever set on login/signup, so the
-in-memory name is stale until the next login.
-**Fix:** Dispatch an update to the `user` slice with the mutation's response.
-
----
-
 ## BUG-09 — Search server-error shows a misleading empty state 🟢 Low (UX)
 
 **Area:** Frontend (`pages/Entries.jsx`)
 
-**Repro:** Search for `(` (which triggers BUG-05's 500).
+**Repro (verified live in the UI):** As a user **who has entries**, type `(` in the search box and submit (this triggers
+BUG-05's 500). Reproduced with BrowserOS — screenshot evidence: the user's real entry is present, yet the page renders
+*"Welcome, {name} — It looks like you haven't added any entries yet."*
 **Expected:** An error message ("something went wrong, try a different search").
-**Actual:** The query error leaves `searchResult` undefined, so the page falls through to the *"Welcome, you haven't
-added any entries yet"* state — implying the user has no entries at all, which is false.
+**Actual:** The query error leaves `searchResult` undefined, so the page falls through to the "haven't added any entries
+yet" state — telling a user with entries that they have none.
 **Fix:** Render an explicit error state when the search query errors.
 
 ---
@@ -211,3 +200,20 @@ a secure context.
   redirects to `/login`.
 - Password fields have no strength hint; the "strong password" rule (upper+lower+number+symbol, 8+) is only revealed on
   a failed submit.
+
+---
+
+## Investigated — not defects
+
+During exploratory testing I suspected two additional issues from reading the code, then **verified them against the
+running app (Playwright isolated contexts + live UI via BrowserOS) and confirmed both work correctly.** They are
+recorded here for transparency:
+
+| Suspected issue | Verdict | Evidence |
+|-----------------|---------|----------|
+| Session is lost on page reload / new tab (no rehydration) | ✅ **Not a bug** | `components/Layout.jsx` calls `GET /users/me` (`useProfileQuery`) on mount and rehydrates the store. A cold-loaded `/entries` in a fresh browser context with a valid cookie **stays logged in** (verified). |
+| Profile name change doesn't update the navbar until re-login | ✅ **Not a bug** | `updateProfile` invalidates the `User` RTK tag → `Layout`'s `useProfileQuery` refetches → the store re-hydrates. After editing the first name, the navbar updates **immediately without a reload** (verified). |
+
+_Lesson recorded: both false positives came from reading controllers/slices in isolation and missing `Layout.jsx`'s
+rehydration. Driving the real UI is what caught them — which is exactly why the exploratory pass is done against a live
+instance, not just from source._

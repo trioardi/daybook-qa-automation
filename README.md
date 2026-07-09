@@ -7,7 +7,8 @@ Automated test suite for the **DayBook** MERN journaling app
 - **API tests** — Jest + Supertest, every REST endpoint and its status codes/validation.
 - **Bug report & test documentation** — [`docs/BUG-REPORT.md`](docs/BUG-REPORT.md), [`docs/TEST-CASES.md`](docs/TEST-CASES.md).
 
-> **Results:** 13 E2E tests ✅ · 43 API tests ✅ (+1 skipped) · **10 confirmed bugs** filed (1 Critical).
+> **Results:** 13 E2E tests ✅ · 43 API tests ✅ (+1 skipped) · **8 confirmed issues** filed (1 Critical, 1 High,
+> 3 Medium, 3 Low) — plus 2 suspected issues investigated against the live app and dismissed.
 
 ---
 
@@ -112,8 +113,9 @@ daybook-qa-assessment/
 │       ├── entries.api.test.ts
 │       └── known-issues.api.test.ts   # executable documentation of confirmed bugs
 └── docs/
-    ├── BUG-REPORT.md           # 10 confirmed defects, severity, repro, fixes
-    └── TEST-CASES.md           # full test matrix + testing strategy
+    ├── BUG-REPORT.md           # 8 confirmed issues (+2 investigated/dismissed), severity, repro, fixes
+    ├── TEST-CASES.md           # full test matrix + testing strategy
+    └── BROWSEROS-QA-FLOW.md    # agentic exploratory + auto-triage layer (BrowserOS → ClickUp/Jira)
 ```
 
 ## 6. Continuous integration (optional)
@@ -133,13 +135,17 @@ No secrets are required; the workflow provisions its own throwaway Mongo + JWT s
 
 ## 7. Notes on a few deliberate design choices
 
-- **Login happens through the UI in every E2E test.** DayBook does not rehydrate its session on reload (see BUG-07),
-  so a stored cookie alone does not make the UI appear logged in — reusing Playwright `storageState` would not work.
-  Specs therefore seed data via the API but log in through the real login form.
+- **Login happens through the UI in every E2E test** — a deliberate choice so the auth flow is exercised end to end on
+  every run. Specs seed *data* via the API but drive the real login form. (The app does rehydrate its session from the
+  cookie on load via `Layout`'s `GET /users/me`, so `storageState` reuse would also work; UI login is a coverage choice.)
 - **The API auth cookie is `Secure; SameSite=None`** (BUG-10). Superagent/axios cookie jars refuse to replay `Secure`
   cookies over plain HTTP, so the API suite captures the `Set-Cookie` value and threads it manually.
 - **Confirmed backend bugs are encoded as `test.failing`** so the suite is green today and turns red the moment a bug
   is fixed — see [`docs/TEST-CASES.md` §4](docs/TEST-CASES.md).
+- **An agentic exploratory layer (BrowserOS) complements the scripted suites** — it drives the real UI to find and
+  *verify* issues, then routes confirmed ones to ClickUp/Jira with root cause. In this project it caught two false
+  positives and corrected one repro before they could reach the report. See
+  [`docs/BROWSEROS-QA-FLOW.md`](docs/BROWSEROS-QA-FLOW.md).
 
 ## 8. Troubleshooting
 

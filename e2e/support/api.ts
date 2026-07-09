@@ -8,12 +8,12 @@ const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:3000';
  * seed an entry) so UI specs can focus their assertions on the behaviour under
  * test rather than re-driving signup through the UI every time.
  *
- * The DayBook app has no session rehydration: the Redux `user` state starts as
- * null on every fresh page load, so a stored cookie alone does NOT make the UI
- * appear logged in. Because of that we cannot reuse Playwright storageState to
- * skip login — every UI session must log in through the login form. These
- * helpers therefore seed data at the API level and the specs perform the actual
- * UI login themselves.
+ * Design choice: specs log in through the real login form (rather than reusing
+ * Playwright storageState) so the authentication flow itself is exercised end to
+ * end on every run. These helpers only seed *data* at the API level; the UI
+ * login is performed by the specs. (The app does rehydrate its session from the
+ * cookie on load via Layout's GET /users/me, so storageState reuse would also
+ * work — driving the login UI is a deliberate coverage choice, not a workaround.)
  */
 
 /** Registers a new user via the API. Returns the created user unchanged. */

@@ -336,9 +336,10 @@ Full analysis, severity and fixes: [`docs/BUG-REPORT.md`](./BUG-REPORT.md).
 |-------|-------|--------|
 | API (Jest + Supertest) | 44 (43 pass, 1 skip) | ✅ Green |
 | E2E (Playwright) | 13 | ✅ Green (stable at 4 parallel workers) |
-| Confirmed defects | 10 filed | 1 Critical, 1 High, 5 Medium, 3 Low |
+| Confirmed issues | 8 filed | 1 Critical, 1 High, 3 Medium, 3 Low (+2 suspected issues investigated & dismissed) |
 
 ### Headline finding
-**BUG-01 (Critical):** `PUT /api/users/me` for any account without a last name throws an unhandled `TypeError` outside
-the try/catch and **crashes the entire Node process** — a one-request denial of service reachable from the normal
-Profile → Save UI flow. This should be fixed first.
+**BUG-01 (Critical):** `PUT /api/users/me` with the optional `lastName` **omitted** throws an unhandled `TypeError`
+outside the try/catch and **crashes the entire Node process** — a one-request denial of service for every user.
+Triggered by direct API consumers (the shipped UI sends `lastName: ""`, which is safe — verified live via BrowserOS).
+This should be fixed first.
