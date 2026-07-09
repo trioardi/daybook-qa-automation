@@ -1,3 +1,13 @@
+/**
+ * Shared helpers for the API suite.
+ *
+ * WHY: centralises the three things every API test needs — a Supertest client
+ * bound to the running backend, unique throwaway test data (so tests are
+ * parallel-safe against a shared DB), and auth-cookie handling. The cookie
+ * handling is manual on purpose: the app issues its auth cookie as
+ * `Secure; SameSite=None`, which Supertest's jar refuses to replay over plain
+ * HTTP (BUG-10), so we capture `Set-Cookie` and thread it by hand.
+ */
 import request from 'supertest';
 import type { Response } from 'supertest';
 

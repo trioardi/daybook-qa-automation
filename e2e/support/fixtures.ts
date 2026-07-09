@@ -1,3 +1,13 @@
+/**
+ * Custom Playwright test fixtures.
+ *
+ * WHY: keeps every spec DRY and isolated. Instead of each test wiring up page
+ * objects, registering a user, and logging in by hand, a spec just declares the
+ * fixtures it needs (`loginPage`, `entriesPage`, `user`, `authedPage`, …) and
+ * gets ready-made, per-test-isolated instances. `user` registers a fresh unique
+ * account via the API; `authedPage` additionally logs that user in through the
+ * real UI so authenticated specs also exercise the login flow.
+ */
 import { test as base, expect } from '@playwright/test';
 import { LoginPage } from '../pages/LoginPage';
 import { SignupPage } from '../pages/SignupPage';

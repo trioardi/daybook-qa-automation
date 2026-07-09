@@ -13,6 +13,10 @@ Automated test suite for the **DayBook** MERN journaling app
 > Every issue in the report was **reproduced against a running instance** (API probes + Playwright + live UI via
 > BrowserOS) before being filed — nothing is inferred from source alone.
 
+> ⚠️ **Before you run anything, read [§8 Disclaimers & known-destructive behavior](#8-disclaimers--known-destructive-behavior).**
+> One documented bug (BUG-01) crashes the DayBook backend on purpose, `1 skipped` test and the `test.failing` cases are
+> **intentional**, and "all green" is the expected healthy result.
+
 ---
 
 ## Quick start (TL;DR)
@@ -136,22 +140,48 @@ It is **dormant by design** — it does **not** run on push or pull request. Run
 
 No secrets are required; the workflow provisions its own throwaway Mongo + JWT secret.
 
-## 7. Notes on a few deliberate design choices
+## 7. Why it's built this way (design decisions & rationale)
 
-- **Login happens through the UI in every E2E test** — a deliberate choice so the auth flow is exercised end to end on
-  every run. Specs seed *data* via the API but drive the real login form. (The app does rehydrate its session from the
-  cookie on load via `Layout`'s `GET /users/me`, so `storageState` reuse would also work; UI login is a coverage choice.)
-- **The API auth cookie is `Secure; SameSite=None`** (BUG-10). Superagent/axios cookie jars refuse to replay `Secure`
-  cookies over plain HTTP, so the API suite captures the `Set-Cookie` value and threads it manually.
-- **Confirmed backend bugs are encoded as `test.failing`** so the suite is green today and turns red the moment a bug
-  is fixed — see [`docs/TEST-CASES.md` §4](docs/TEST-CASES.md).
-- **An agentic exploratory layer (BrowserOS) complements the scripted suites** — it drives the real UI to find and
-  *verify* issues. In this project it caught two false positives and corrected one repro before they could reach the
-  report. When a bug tracker is connected, the same run **automatically creates the bug card** in ClickUp/Jira (title,
-  severity, repro, root cause, fix, screenshot) — no live tracker access was wired for this assessment, so the docs
-  show the exact card payload it would post. See [`docs/BROWSEROS-QA-FLOW.md`](docs/BROWSEROS-QA-FLOW.md).
+Every choice below is deliberate — here is the reasoning, so a reviewer can see the *why*, not just the *what*.
 
-## 8. Troubleshooting
+| Decision | Why |
+|----------|-----|
+| **Two layers: API (Jest+Supertest) + E2E (Playwright)** | Test each concern where it's cheapest and most reliable. The API layer nails status codes/validation deterministically (no UI flakiness); the E2E layer proves the real user journeys. Both tools are on the assignment's allowed list, and Playwright matches the day-to-day stack. |
+| **Page Object Model** (`e2e/pages/`) | Keep every selector in one place, so a UI change is a one-line fix instead of edits across many specs — and specs read like user stories, not selector soup. |
+| **Typed fixtures** (`e2e/support/fixtures.ts`, `test.extend`) | DRY setup: each test gets ready-made page objects, a pre-registered `user`, and an `authedPage` — with per-test isolation baked in. |
+| **Unique data factories** (pid + timestamp + random) | Every test creates its own user/entry, so the whole suite runs in parallel against one shared DB with zero collisions. (We actually hit a real duplicate-email race at high worker counts; this is the fix.) |
+| **Arrange via API, assert via UI** | Seed prerequisites fast over HTTP, then spend the test's assertions on the behaviour under test rather than re-driving signup through the UI every time. |
+| **Log in through the UI on every E2E test** (not `storageState`) | Exercise the real auth flow end-to-end on every run. The app *does* rehydrate from the cookie (via `Layout`'s `GET /users/me`), so `storageState` reuse would also work — driving the login form is a **coverage** choice, not a workaround. |
+| **Manual cookie threading in API tests** (`api/support/client.ts`) | The app issues its auth cookie as `Secure; SameSite=None`; superagent/axios cookie jars refuse to replay `Secure` cookies over plain HTTP (**BUG-10**). So we capture `Set-Cookie` and set it by hand — robust regardless of the jar. |
+| **`test.failing` for confirmed backend bugs** (`known-issues.api.test.ts`) | Encode the *correct* expected behaviour. It reports **green today** (because the app is buggy) and turns **red the moment the bug is fixed** — a built-in regression alarm. See §8. |
+| **`test.skip` for BUG-01** | Exercising it **crashes the whole backend process**; running it in-band would cascade-fail every later test. Parked as a documented skip with a full repro in comments. See §8. |
+| **No Playwright `webServer`** | The app needs a MongoDB instance provisioned outside this repo, so the suite doesn't auto-boot it — the README (and CI) start it explicitly and predictably. |
+| **Dormant CI** (`workflow_dispatch` only) | Don't auto-run or incur cost on every push. It's ready to run manually or on a schedule when wanted (§6). |
+| **Chromium-only project** | The assignment scope is one browser. Locators are accessibility/role-based, so adding Firefox/WebKit is a config-only change. |
+| **Agentic layer (BrowserOS)** | Exploratory testing + **live verification** of each finding + auto-file to the tracker. In this project it caught **two false positives** and **corrected one repro** before they reached the report — see [`docs/BROWSEROS-QA-FLOW.md`](docs/BROWSEROS-QA-FLOW.md). When a tracker is connected it **creates the bug card automatically**; no live tracker access was wired here, so the docs show the exact payload it would post. |
+
+## 8. Disclaimers & known-destructive behavior
+
+Please read these before running — the items below are **intentional**, not mistakes:
+
+- **This suite tests the DayBook app *as-is*.** Every issue in [`docs/BUG-REPORT.md`](docs/BUG-REPORT.md) is a defect **in
+  the application**, not in the tests. The test code itself is fully green: **43 API + 13 E2E passing**.
+- **⚠️ One bug (BUG-01) crashes the DayBook backend on purpose — and its test is therefore `skip`-ped.**
+  `PUT /api/users/me` with the `lastName` key **omitted** throws an unhandled `TypeError` *outside* the try/catch and
+  **kills the Node process** (verified live). Running that live in the suite would take the server down and fail every
+  test after it, so it is `test.skip` with a full reproduction in the comments. **If you manually reproduce BUG-01 (or
+  anything trips it), the backend will be DOWN — just restart it** (`npm start` / `npm run dev` in `daybook/backend`).
+  That is application behaviour, not a test failure.
+- **`test.failing` cases report as PASSING on purpose.** The 5 cases in `known-issues.api.test.ts` assert what a *correct*
+  API *should* return. They pass **because** the app currently returns the wrong thing; the day a bug is fixed, that case
+  starts **failing** to alert you. So the healthy, expected result of a full run is **`1 skipped, 43 passed` (API)** and
+  **`13 passed` (E2E)** — "all green with one skip" is correct.
+- **API cookie handling is manual by necessity** (BUG-10, see §7) — nothing to configure, just noted so the extra
+  `Set-Cookie` plumbing in `api/support/client.ts` isn't mistaken for accidental complexity.
+- **Test data is disposable.** Tests create uniquely-named throwaway users/entries in whatever database the app points
+  at. Point the app at a **scratch DB**, never production data.
+
+## 9. Troubleshooting
 
 | Symptom | Cause & fix |
 |---------|-------------|
@@ -159,7 +189,5 @@ No secrets are required; the workflow provisions its own throwaway Mongo + JWT s
 | E2E tests time out on the first navigation | The DayBook **frontend** is not running on `:5173`. Start it (§2) or set `FRONTEND_URL`. |
 | Backend logs `Database not connected!` | **MongoDB** is not reachable. Start Mongo (`docker run -p 27017:27017 mongo` or `mongod`) and restart the backend. |
 | `browserType.launch: Executable doesn't exist` | Playwright browser missing — run `npx playwright install chromium`. |
-| API suite fails right after a profile test | You may have triggered **BUG-01** (server crash). Restart the backend; the suite keeps that case `skip`-ped for exactly this reason. |
-
-> **Note:** the suite tests the DayBook app *as-is*. The 8 documented issues are defects **in the application**, not in
-> the tests — the test suite itself is fully green (see [`docs/TEST-CASES.md`](docs/TEST-CASES.md) §5).
+| The backend went down / API tests suddenly all fail with connection errors | You (or something) triggered **BUG-01**, which crashes the server (§8). Restart the backend; the suite keeps that case `skip`-ped for exactly this reason. |
+| A `test.failing` case is reported as **failing** (red) | That means the corresponding **app bug was fixed** 🎉 — promote it from `test.failing` to a normal `test` (§8). |
