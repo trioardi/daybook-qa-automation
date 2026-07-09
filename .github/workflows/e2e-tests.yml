@@ -78,10 +78,18 @@ jobs:
         run: |
           npm install --no-audit --no-fund
           echo "VITE_BACKEND_URL=${BACKEND_URL}" > .env
-          npm run dev > "$GITHUB_WORKSPACE/frontend.log" 2>&1 &
+          # Bind explicitly to all interfaces + a fixed port. Vite's default
+          # `localhost` binding can resolve to IPv6 (::1) on CI, which an IPv4
+          # health check never sees; `--host 0.0.0.0 --strictPort` avoids that.
+          npm run dev -- --host 0.0.0.0 --port 5173 --strictPort > "$GITHUB_WORKSPACE/frontend.log" 2>&1 &
 
       - name: Wait for backend + frontend to be ready
-        run: npx --yes wait-on -t 120000 tcp:127.0.0.1:3000 tcp:127.0.0.1:5173
+        run: |
+          npx --yes wait-on -t 120000 tcp:127.0.0.1:3000 http-get://127.0.0.1:5173 || {
+            echo "::group::backend.log"; cat "$GITHUB_WORKSPACE/backend.log" 2>/dev/null || true; echo "::endgroup::"
+            echo "::group::frontend.log"; cat "$GITHUB_WORKSPACE/frontend.log" 2>/dev/null || true; echo "::endgroup::"
+            exit 1
+          }
 
       # ---- Test suite ------------------------------------------------------
       - name: Install test-suite dependencies
