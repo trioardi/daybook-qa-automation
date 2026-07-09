@@ -73,6 +73,11 @@ evidence: browseros-screenshot + server crash log (userController.js:21)
 verified: true (reproduced live; server PID confirmed gone)
 ```
 
-**Status in this repo:** the detection + verification + root-cause steps are demonstrated above. The final "create
-ticket" step is a single MCP call to ClickUp or Jira and is run on demand once a target list/project is chosen — it is
-intentionally not fired automatically so the tracker isn't polluted during a dry run.
+**Automatic card creation — gated only on tracker access.** When a ClickUp or Jira workspace is connected (over MCP),
+this final step runs **automatically**: the flow posts the payload above as a new bug card — title, severity, steps,
+root cause, suggested fix, and the screenshot evidence — with no manual copy-paste. The detection → verification →
+root-cause work is identical whether or not a tracker is attached; only the last "create card" call needs credentials.
+
+For **this assessment we intentionally did not wire live ClickUp/Jira access**, so the cards are shown here as the exact
+structured payload the flow would post. Grant the integration access to the bug board and the same run that finds a
+verified bug will file the card for it end to end — automatically.

@@ -143,9 +143,10 @@ No secrets are required; the workflow provisions its own throwaway Mongo + JWT s
 - **Confirmed backend bugs are encoded as `test.failing`** so the suite is green today and turns red the moment a bug
   is fixed — see [`docs/TEST-CASES.md` §4](docs/TEST-CASES.md).
 - **An agentic exploratory layer (BrowserOS) complements the scripted suites** — it drives the real UI to find and
-  *verify* issues, then routes confirmed ones to ClickUp/Jira with root cause. In this project it caught two false
-  positives and corrected one repro before they could reach the report. See
-  [`docs/BROWSEROS-QA-FLOW.md`](docs/BROWSEROS-QA-FLOW.md).
+  *verify* issues. In this project it caught two false positives and corrected one repro before they could reach the
+  report. When a bug tracker is connected, the same run **automatically creates the bug card** in ClickUp/Jira (title,
+  severity, repro, root cause, fix, screenshot) — no live tracker access was wired for this assessment, so the docs
+  show the exact card payload it would post. See [`docs/BROWSEROS-QA-FLOW.md`](docs/BROWSEROS-QA-FLOW.md).
 
 ## 8. Troubleshooting
 
