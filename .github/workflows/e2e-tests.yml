@@ -1,0 +1,116 @@
+name: DayBook QA Suite
+
+# ---------------------------------------------------------------------------
+# This workflow is DORMANT by design: it only runs when a maintainer starts it
+# manually (Actions tab -> "DayBook QA Suite" -> "Run workflow"). It does NOT
+# run on push or pull_request.
+#
+# To run it on a schedule instead, uncomment the `schedule` block below and
+# adjust the cron expression (times are UTC).
+# ---------------------------------------------------------------------------
+on:
+  workflow_dispatch: # manual trigger only
+  # schedule:
+  #   - cron: '0 6 * * 1'   # e.g. every Monday at 06:00 UTC — uncomment to enable
+
+permissions:
+  contents: read
+
+env:
+  CI: 'true'
+  TZ: 'UTC'
+  PLAYWRIGHT_BROWSERS_PATH: ~/.cache/ms-playwright
+  # DayBook backend config
+  PORT: '3000'
+  MONGO_URI: 'mongodb://127.0.0.1:27017/daybook'
+  JWT_SECRET: 'ci-test-secret'
+  FRONTEND_URL: 'http://localhost:5173'
+  BACKEND_URL: 'http://localhost:3000'
+
+concurrency:
+  group: daybook-qa-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      mongodb:
+        image: mongo:7
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.runCommand({ ping: 1 }).ok'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - name: Checkout test suite
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      # ---- Application under test (DayBook) --------------------------------
+      - name: Clone DayBook app
+        run: git clone --depth 1 https://github.com/TheNileshNishad/daybook.git app
+
+      - name: Start DayBook backend
+        working-directory: app/backend
+        run: |
+          npm install --no-audit --no-fund
+          cat > .env <<EOF
+          PORT=${PORT}
+          MONGO_URI=${MONGO_URI}
+          JWT_SECRET=${JWT_SECRET}
+          FRONTEND_URL=${FRONTEND_URL}
+          EOF
+          node src/index.js > "$GITHUB_WORKSPACE/backend.log" 2>&1 &
+
+      - name: Start DayBook frontend
+        working-directory: app/frontend
+        run: |
+          npm install --no-audit --no-fund
+          echo "VITE_BACKEND_URL=${BACKEND_URL}" > .env
+          npm run dev > "$GITHUB_WORKSPACE/frontend.log" 2>&1 &
+
+      - name: Wait for backend + frontend to be ready
+        run: npx --yes wait-on -t 120000 tcp:127.0.0.1:3000 tcp:127.0.0.1:5173
+
+      # ---- Test suite ------------------------------------------------------
+      - name: Install test-suite dependencies
+        run: npm ci
+
+      - name: Install Playwright Chromium (+ OS deps)
+        run: npx playwright install --with-deps chromium
+
+      - name: Run API tests (Jest + Supertest)
+        run: npm run test:api
+
+      - name: Run E2E tests (Playwright)
+        run: npm run test:e2e
+
+      # ---- Evidence --------------------------------------------------------
+      - name: Upload Playwright HTML report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 14
+
+      - name: Upload app logs on failure
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-logs
+          path: |
+            backend.log
+            frontend.log
+          retention-days: 7

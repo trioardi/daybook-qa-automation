@@ -94,6 +94,8 @@ BACKEND_URL=http://localhost:3000 FRONTEND_URL=http://localhost:5173 npm test
 
 ```
 daybook-qa-assessment/
+├── .github/workflows/
+│   └── e2e-tests.yml           # dormant CI (manual/scheduled) — see §6
 ├── playwright.config.ts        # E2E config (baseURL from FRONTEND_URL)
 ├── e2e/
 │   ├── pages/                  # Page objects: Login, Signup, NavBar, Entries
@@ -114,7 +116,22 @@ daybook-qa-assessment/
     └── TEST-CASES.md           # full test matrix + testing strategy
 ```
 
-## 6. Notes on a few deliberate design choices
+## 6. Continuous integration (optional)
+
+A GitHub Actions workflow is included at
+[`.github/workflows/e2e-tests.yml`](.github/workflows/e2e-tests.yml). It spins up MongoDB, clones and starts the
+DayBook app (backend + frontend), then runs the **API and E2E suites** and uploads the Playwright HTML report as an
+artifact.
+
+It is **dormant by design** — it does **not** run on push or pull request. Run it only when needed:
+
+- **Manually:** GitHub → **Actions** tab → **DayBook QA Suite** → **Run workflow**.
+- **On a schedule:** uncomment the `schedule:` / `cron:` block at the top of the workflow file (times are UTC), e.g.
+  `'0 6 * * 1'` for every Monday at 06:00.
+
+No secrets are required; the workflow provisions its own throwaway Mongo + JWT secret.
+
+## 7. Notes on a few deliberate design choices
 
 - **Login happens through the UI in every E2E test.** DayBook does not rehydrate its session on reload (see BUG-07),
   so a stored cookie alone does not make the UI appear logged in — reusing Playwright `storageState` would not work.
@@ -124,7 +141,7 @@ daybook-qa-assessment/
 - **Confirmed backend bugs are encoded as `test.failing`** so the suite is green today and turns red the moment a bug
   is fixed — see [`docs/TEST-CASES.md` §4](docs/TEST-CASES.md).
 
-## 7. Troubleshooting
+## 8. Troubleshooting
 
 | Symptom | Cause & fix |
 |---------|-------------|
