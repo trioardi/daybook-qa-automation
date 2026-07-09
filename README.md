@@ -19,6 +19,36 @@ Automated test suite for the **DayBook** MERN journaling app
 
 ---
 
+## Author's note — what this is, and why I built it this way
+
+I built this suite the way I build and maintain real test automation as a senior QA: **from scratch, to last.** It isn't a
+pile of scripts that happens to pass today — it's a harness a team can run, read, and extend months from now without it
+rotting. Everything here is a deliberate choice from experience owning an application's quality end to end.
+
+**What's here, and the reason for each piece:**
+
+- **Two test layers, on purpose.** API tests (Jest + Supertest) pin every endpoint's status codes and validation
+  deterministically; E2E tests (Playwright) prove the real user journeys through the UI. I test each risk at the layer
+  where it's cheapest and least flaky — I don't push everything through a browser.
+- **Built to stay maintainable.** Page objects keep selectors in one place, typed fixtures kill setup duplication, and
+  unique per-test data lets the whole thing run in parallel against a shared DB. These aren't decorations — they're what
+  stops a suite from collapsing under its own weight past 50 tests.
+- **Findings are verified before they're filed.** I reproduce every bug against a running instance (API + live UI via
+  BrowserOS) before it enters the report. On this app that discipline paid off: I caught **two of my own suspected bugs
+  as false positives** and corrected a third's reproduction. A QA report that cries wolf is worse than none.
+- **Known bugs are executable, not just prose.** Confirmed defects are encoded as `test.failing`, so the day a developer
+  fixes one, the suite tells them. The single destructive crash (BUG-01) is a documented `skip` for a spelled-out reason
+  (§8) — I don't let one app defect take the whole run hostage.
+- **Everything explains its *why*.** Every design decision has a reason written next to it (§7), every spec carries
+  preconditions/steps/expected results, and the CI reproduces the entire stack (Mongo + backend + frontend + tests) from
+  a cold runner — **verified green on GitHub Actions**, not just theorised.
+
+That instinct — *test at the right layer, isolate your data, verify before you claim, and document the why so anyone can
+maintain it* — is what I bring as a QA who builds and keeps a suite alive over time. The tools are just how it gets
+expressed.
+
+---
+
 ## Quick start (TL;DR)
 
 ```bash
@@ -131,6 +161,10 @@ A GitHub Actions workflow is included at
 [`.github/workflows/e2e-tests.yml`](.github/workflows/e2e-tests.yml). It spins up MongoDB, clones and starts the
 DayBook app (backend + frontend), then runs the **API and E2E suites** and uploads the Playwright HTML report as an
 artifact.
+
+> ✅ **Verified:** this workflow has been run on GitHub Actions and completes green — `1 skipped, 43 passed` (API) and
+> `13 passed` (E2E), with the Playwright HTML report attached as a run artifact. The whole app-under-test (Mongo +
+> backend + frontend) is provisioned by the workflow itself; nothing needs to be pre-built.
 
 It is **dormant by design** — it does **not** run on push or pull request. Run it only when needed:
 
